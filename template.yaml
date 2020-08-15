@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  faceid-app
+
+  Sample SAM Template for faceid-app
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    Environment:
+      Variables:
+        BUCKETNAME: "uploadimagekusu"
+        REKOGNITIONCOLLECTION: "faceIdAppCollection"
+        REKOGNITIONFACEMATCHTHRESHOLD: 95
+
+  Api:
+    Cors: 
+      AllowMethods: "'POST'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+
+Resources:
+  
+  
+  UploadImageAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: "UploadImageAPI"
+      StageName: Prod
+
+  
+  UploadImageFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: uploadimage/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Events:
+        UploadImage:
+          Type: Api 
+          Properties:
+            Path: /upload
+            Method: post
+            RestApiId:
+              Ref: UploadImageAPI
+      Policies:
+        - Statement:
+          - Sid: AllowRekognitionActions
+            Effect: Allow
+            Action:
+            - rekognition:*
+            Resource: '*'
+          - Sid: AllowS3Actions
+            Effect: Allow
+            Action:
+            - s3:*
+            Resource: '*'
+
+  SearchImageAPIFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: searchimage/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Events:
+        Register:
+          Type: Api 
+          Properties:
+            Path: /searchimage
+            Method: post
+            RestApiId:
+              Ref: UploadImageAPI
+      Policies:
+      - Statement:
+        - Sid: AllowRekognitionActions
+          Effect: Allow
+          Action:
+          - rekognition:*
+          Resource: '*'
+        - Sid: AllowS3Actions
+          Effect: Allow
+          Action:
+          - s3:*
+          Resource: '*'
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  Api:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${UploadImageAPI}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
