@@ -34,7 +34,7 @@ def lambda_handler(event, context):
         logger.info("Getting results.")
         if response['ResponseMetadata']['HTTPStatusCode'] != 200 or len(response['FaceRecords']) == 0:
             raise Exception("Fail to register a face to Rekognition.")
-    
+
         faceId = response['FaceRecords'][0]['Face']['FaceId']
         logger.info("Recorded faceId: {}".format(faceId))
 
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
                 "Content-Type": "application/json"
             },
             "body": json.dumps({
-                "message": "Success. Face recorded",
+                "message": "Success. Face recorded"
             }),
         }
     except Exception as e:
