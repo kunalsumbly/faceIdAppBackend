@@ -5,12 +5,11 @@ import json
 
 BUCKET = os.environ['BUCKETNAME']
 COLLECTION_ID = os.environ['REKOGNITIONCOLLECTION']
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 s3 = boto3.client('s3')
 rekognition = boto3.client('rekognition')
 region = os.environ['AWS_REGION'] 
-counter_table = os.environ['PersonDataCounter']
 missing_person_table = os.environ['PersonData']
 dynamodb = boto3.client('dynamodb',region)
 
@@ -42,12 +41,9 @@ def lambda_handler(event, context):
 
         faceId = response['FaceRecords'][0]['Face']['FaceId']
         logger.info("Recorded faceId: {}".format(faceId))
-        
-        # implement auto increment here
-        person_record_pk_id=incrementPersonRecordCounter(); 
 
         # save the attributes in the person missing data
-        saveMissingPersonData(person_record_pk_id, missing_person_data,faceId)
+        saveMissingPersonData(missing_person_data,faceId)
 
         return {
             "statusCode": 200,
@@ -73,11 +69,11 @@ def lambda_handler(event, context):
         }
 
 # This method saves the missing person data in Dynamodb
-def saveMissingPersonData(person_record_pk_id, missing_person_data, faceId):
+def saveMissingPersonData(missing_person_data, faceId):
     response = dynamodb.put_item (
                     TableName=missing_person_table,
                      Item = {
-                                "person_record_id":{"N":person_record_pk_id}, # key id person record pk id
+                                "faceid":{"S":faceId}, # face id is the partition key
                                 "firstname": {"S":missing_person_data['firstname']},
                                 "lastname": {"S":missing_person_data['lastname']},
                                 "dateofbirth": {"S":missing_person_data['dateofbirth']},
@@ -85,25 +81,7 @@ def saveMissingPersonData(person_record_pk_id, missing_person_data, faceId):
                                 "age": {"S":str(missing_person_data['age'])},
                                 "familycontactphone": {"S":str(missing_person_data['familycontactphone'])},
                                 "reportingcentrecontact": {"S":missing_person_data['reportingcentrecontact']},
-                                "faceid":{"S":faceId}
+                                "dateofreport":{"S":missing_person_data['dateofreport']}
                             }
                 )
-
-# This method will increment the person record counter
-def incrementPersonRecordCounter() :
-    logger.info("incrementPersonRecordCounter started")
-    response= dynamodb.update_item (
-                TableName=counter_table,
-                Key={
-                        "counterName":{"S":"personRecordCounter"}
-                    },
-                UpdateExpression="SET #var = #var + :incr",
-                ExpressionAttributeNames={ "#var": "currentValue" },
-                ExpressionAttributeValues={
-                     ":incr": {"N":"1"}
-                },
-                ReturnValues='UPDATED_NEW'
-            )
-    logger.info("incrementPersonRecordCounter ended")        
-    return response['Attributes']['currentValue']['N']
 

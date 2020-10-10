@@ -59,11 +59,9 @@ Resources:
             Resource: '*'
         - DynamoDBCrudPolicy:
             TableName: !Ref MissingPersonTable
-            TableName: !Ref CounterTable     
       Environment:
         Variables:
           PersonData: !Ref MissingPersonTable
-          PersonDataCounter: !Ref CounterTable
 
   SearchImageAPIFunction:
     Type: AWS::Serverless::Function 
@@ -92,40 +90,25 @@ Resources:
           - s3:*
           Resource: '*'
       - DynamoDBCrudPolicy:
-            TableName: !Ref MissingPersonTable
-            TableName: !Ref CounterTable    
+            TableName: !Ref MissingPersonTable   
       Environment:
         Variables:
           PersonData: !Ref MissingPersonTable
-          PersonDataCounter: !Ref CounterTable
 
   MissingPersonTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: persondatarecord
+      TableName: personrecords
       AttributeDefinitions:
-        - AttributeName: person_record_id
-          AttributeType: N
+        - AttributeName: faceid
+          AttributeType: S
       KeySchema: 
-        - AttributeName: person_record_id
+        - AttributeName: faceid
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
   
-  CounterTable:
-    Type: 'AWS::DynamoDB::Table'
-    Properties:
-      TableName: persondatacounter
-      AttributeDefinitions:
-        - AttributeName: counterName
-          AttributeType: S
-      KeySchema:
-        - AttributeName: counterName
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

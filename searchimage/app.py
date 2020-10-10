@@ -7,11 +7,13 @@ import json
 BUCKET = os.environ['BUCKETNAME']
 COLLECTION_ID = os.environ['REKOGNITIONCOLLECTION']
 FACE_MATCH_THRESHOLD = int(os.environ['REKOGNITIONFACEMATCHTHRESHOLD'])
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 s3 = boto3.client('s3')
 rekognition = boto3.client('rekognition')
-
+region = os.environ['AWS_REGION'] 
+missing_person_table = os.environ['PersonData']
+dynamodb = boto3.client('dynamodb',region)
 logger = logging.getLogger()
 logger.setLevel(LOG_LEVEL)
 
@@ -45,6 +47,15 @@ def lambda_handler(event, context):
         confidence = faceFound['Similarity']
         logger.info("Found faceId: {}. Confidence level: {}".format(faceId, confidence))
 
+        db_response=findPersonDataByFaceId(faceId)
+        
+        payload=db_response['Item']
+        firstname = [*payload['firstname'].values()]
+        lastname=[*payload['lastname'].values()]
+        lastseendate=[*payload['dateofreport'].values()]
+        lastseenlocation=[*payload['missingfromlocation'].values()]
+        message = firstname[0]+","+lastname[0]+" , missing since="+lastseendate[0]+", from location="+lastseenlocation[0]
+        
         return {
             "statusCode": 200,
             "headers": {
@@ -52,7 +63,7 @@ def lambda_handler(event, context):
                 "Content-Type": "application/json"
             },
             "body": json.dumps({
-                "message": "Succeed to find similar face.",
+                "message": "Succeed to find="+message,
                 "faceId": faceId,
                 "confidence": confidence
             }),
@@ -68,3 +79,12 @@ def lambda_handler(event, context):
                 "message": "Error: {}".format(e),
             }),
         }
+
+def findPersonDataByFaceId(faceId):
+    response = dynamodb.get_item (
+                TableName=missing_person_table,
+                    Key={
+                        "faceid" :{"S":faceId}
+                    }
+            )
+    return response
