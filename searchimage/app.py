@@ -22,6 +22,7 @@ def lambda_handler(event, context):
         data = json.loads(event['body'])
         image = data['image']
         
+        
         logger.info("Searching faces.")
         response = rekognition.search_faces_by_image(
             Image={
