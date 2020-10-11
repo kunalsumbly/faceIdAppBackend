@@ -10,9 +10,11 @@ FACE_MATCH_THRESHOLD = int(os.environ['REKOGNITIONFACEMATCHTHRESHOLD'])
 LOG_LEVEL = logging.DEBUG
 
 s3 = boto3.client('s3')
+sns=boto3.client('sns')
 rekognition = boto3.client('rekognition')
 region = os.environ['AWS_REGION'] 
 missing_person_table = os.environ['PersonData']
+sns_topic = os.environ['SnsTopic']
 dynamodb = boto3.client('dynamodb',region)
 logger = logging.getLogger()
 logger.setLevel(LOG_LEVEL)
@@ -54,8 +56,16 @@ def lambda_handler(event, context):
         lastname=[*payload['lastname'].values()]
         lastseendate=[*payload['dateofreport'].values()]
         lastseenlocation=[*payload['missingfromlocation'].values()]
+        contactcentreemail=[*payload['reportingcentrecontact'].values()]
         message = firstname[0]+","+lastname[0]+" , missing since="+lastseendate[0]+", from location="+lastseenlocation[0]
         
+        logger.info("Sending Email Notification")
+        
+        sns.publish(
+            TopicArn=sns_topic,
+            Message=message
+        )
+
         return {
             "statusCode": 200,
             "headers": {

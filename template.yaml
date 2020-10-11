@@ -21,9 +21,51 @@ Globals:
       AllowHeaders: "'*'"
       AllowOrigin: "'*'"
 
+Parameters:
+  ApplicationName:
+    Description: Name of the application deploying for the Social Media Analytics
+    Type: String
+    Default: faceIdApplication
+
+  EmailAddress:
+    Description: Email address used for SNS notification whenever people are found in image/video
+    Type: String
+    Default: risekusu@gmail.com
+
 Resources:
+  SNSTopic:
+    Type: "AWS::SNS::Topic"
+    Properties: 
+      DisplayName: !Sub ${ApplicationName} SNS Topic
+      Subscription:
+        - 
+          Endpoint: !Sub ${EmailAddress}
+          Protocol: email
   
-  
+  SNSPublishRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: '/'
+      Policies:
+        -
+          PolicyName: lambda-comprehend-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                    - 'sns:Publish'
+                Resource: !Ref SNSTopic
+
   UploadImageAPI:
     Type: AWS::Serverless::Api
     Properties:
@@ -89,11 +131,18 @@ Resources:
           Action:
           - s3:*
           Resource: '*'
+        - Sid: AllowSNSPublish
+          Effect: Allow
+          Action:
+          - sns:*
+          Resource: !Ref SNSTopic
+
       - DynamoDBCrudPolicy:
             TableName: !Ref MissingPersonTable   
       Environment:
         Variables:
           PersonData: !Ref MissingPersonTable
+          SnsTopic: !Ref SNSTopic
 
   MissingPersonTable:
     Type: AWS::DynamoDB::Table
