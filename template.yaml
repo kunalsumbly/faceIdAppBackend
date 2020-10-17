@@ -11,8 +11,8 @@ Globals:
     Timeout: 3
     Environment:
       Variables:
-        BUCKETNAME: "uploadimagekusu"
-        REKOGNITIONCOLLECTION: "faceIdAppCollection"
+        BUCKETNAME: !Ref UploadImageBucket
+        REKOGNITIONCOLLECTION: !Ref  KinesisCollectionId
         REKOGNITIONFACEMATCHTHRESHOLD: 95
 
   Api:
@@ -32,7 +32,29 @@ Parameters:
     Type: String
     Default: risekusu@gmail.com
 
+  UploadImageBucket:
+    Type: String
+    Description: This bucket is for image upload
+    Default: uploadimagekusu001
+
+  KinesisCollectionId:
+    Type: String
+    Description: Kinesis collection Id
+    Default: faceIdAppCollection002
+
+  KinesisLambdaBucket:
+    Type: String
+    Description: This bucket is for kinesis lambda zip
+    Default: kinesislambdakusu002
+
+
 Resources:
+  EventMetadataStream:
+    Type: "AWS::Kinesis::Stream"
+    Properties: 
+      Name: !Sub ${ApplicationName}-Stream
+      ShardCount: 1
+
   SNSTopic:
     Type: "AWS::SNS::Topic"
     Properties: 
@@ -41,7 +63,7 @@ Resources:
         - 
           Endpoint: !Sub ${EmailAddress}
           Protocol: email
-  
+
   SNSPublishRole:
     Type: AWS::IAM::Role
     Properties:
@@ -63,8 +85,95 @@ Resources:
               -
                 Effect: Allow
                 Action:
-                    - 'sns:Publish'
+                - 'sns:Publish'
                 Resource: !Ref SNSTopic
+              - 
+                Effect: Allow
+                Action:
+                - s3:*
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                - dynamodb:*
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                    - 'kinesis:GetRecords'
+                    - 'kinesis:GetShardIterator'
+                    - 'kinesis:DescribeStream'
+                    - 'kinesis:ListStreams'
+                Resource: !GetAtt EventMetadataStream.Arn
+              -
+                Effect: Allow
+                Action:
+                    - 'kinesis:ListStreams'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                    - 'logs:*'
+                Resource: '*'
+  
+  RekognitionVideoIAM:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: rekognition.amazonaws.com
+            Action: sts:AssumeRole
+      Path: '/'
+      Policies:
+        -
+          PolicyName: lambda-comprehend-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                    - 'kinesis:*'
+                Resource: !GetAtt EventMetadataStream.Arn
+              -
+                Effect: Allow
+                Action:
+                    - 'kinesisvideo:*'
+                Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                    - 'rekognition:*'
+                Resource: '*'
+
+  RekognitionVideoLambda: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Environment:
+        Variables:
+          SnsTopic: !Ref SNSTopic
+          PersonData: !Ref MissingPersonTable
+      Handler: "kinesisvideostream/app.lambda_handler"
+      Role: !GetAtt SNSPublishRole.Arn
+      Code: 
+        S3Bucket: "kinesislambdakusu001"
+        S3Key: "lambda.zip"
+      Runtime: "python3.8"
+      Timeout: "500"
+  
+  RekognitionLambdaKinesisMapping:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties: 
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt EventMetadataStream.Arn
+      FunctionName: !GetAtt  RekognitionVideoLambda.Arn
+      StartingPosition: "TRIM_HORIZON"
+
 
   UploadImageAPI:
     Type: AWS::Serverless::Api
@@ -79,6 +188,7 @@ Resources:
       CodeUri: uploadimage/
       Handler: app.lambda_handler
       Runtime: python3.8
+      Timeout: 60
       Events:
         UploadImage:
           Type: Api 
@@ -111,6 +221,7 @@ Resources:
       CodeUri: searchimage/
       Handler: app.lambda_handler
       Runtime: python3.8
+      Timeout: 60
       Events:
         Register:
           Type: Api 
@@ -166,3 +277,12 @@ Outputs:
   Api:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${UploadImageAPI}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  
+  KinesisDataStreamArn:
+    Description: Kinesis Data Stream Arn (used in Stream Processer Input)
+    Value: !GetAtt EventMetadataStream.Arn
+  
+  RekognitionVideoIAM:
+    Description: Rekognition Video Processing IAM Arn (used in Stream Processer Input)
+    Value: !GetAtt RekognitionVideoIAM.Arn
+  

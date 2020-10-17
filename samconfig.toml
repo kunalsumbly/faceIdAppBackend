@@ -3,9 +3,9 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "faceIdAppKusu"
-s3_bucket = "kususambuildrepo"
+s3_bucket = "codebucketkusu002"
 s3_prefix = "faceIdAppKusu"
-region = "us-east-1"
+region = "us-west-2"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 
