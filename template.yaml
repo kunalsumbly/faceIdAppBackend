@@ -35,17 +35,17 @@ Parameters:
   UploadImageBucket:
     Type: String
     Description: This bucket is for image upload
-    Default: uploadimagekusu001
+    Default: uploadimagekusu
 
   KinesisCollectionId:
     Type: String
     Description: Kinesis collection Id
-    Default: faceIdAppCollection002
+    Default: faceIdAppCollection
 
   KinesisLambdaBucket:
     Type: String
     Description: This bucket is for kinesis lambda zip
-    Default: kinesislambdakusu002
+    Default: kinesislambdabucket
 
 
 Resources:
